@@ -1,0 +1,69 @@
+---
+- name: Install PostgreSQL on Debian/Ubuntu
+  apt:
+    name: postgresql
+    state: present
+  when: ansible_os_family == "Debian"
+  tags: [install, postgresql]
+
+- name: Install PostgreSQL client on Debian/Ubuntu
+  apt:
+    name: postgresql-client
+    state: present
+  when: ansible_os_family == "Debian"
+  tags: [install, postgresql]
+
+- name: Install PostgreSQL server on CentOS/RHEL
+  yum:
+    name: postgresql-server
+    state: present
+  when: ansible_os_family == "RedHat"
+  tags: [install, postgresql]
+
+- name: Install PostgreSQL client on CentOS/RHEL
+  yum:
+    name: postgresql
+    state: present
+  when: ansible_os_family == "RedHat"
+  tags: [install, postgresql]
+
+- name: Initialize PostgreSQL database (CentOS/RHEL)
+  command: "postgresql-setup --initdb"
+  args:
+    creates: "/var/lib/pgsql/data/PG_VERSION"
+  when: ansible_os_family == "RedHat"
+  tags: [configure, postgresql]
+
+- name: Find PostgreSQL config file (Debian/Ubuntu)
+  find:
+    paths: /etc/postgresql
+    patterns: postgresql.conf
+    recurse: yes
+  register: pg_conf_file
+  when: ansible_os_family == "Debian"
+  tags: [configure, postgresql]
+
+- name: Configure listen_addresses (Debian/Ubuntu)
+  lineinfile:
+    path: "{{ pg_conf_file.files[0].path }}"
+    regexp: '^#?listen_addresses\s*='
+    line: "listen_addresses = '{{ postgresql.listen_addresses }}'"
+  notify: restart postgresql
+  when: ansible_os_family == "Debian"
+  tags: [configure, postgresql]
+
+- name: Configure listen_addresses (CentOS/RHEL)
+  lineinfile:
+    path: "/var/lib/pgsql/data/postgresql.conf"
+    regexp: '^#?listen_addresses\s*='
+    line: "listen_addresses = '{{ postgresql.listen_addresses }}'"
+  notify: restart postgresql
+  when: ansible_os_family == "RedHat"
+  tags: [configure, postgresql]
+
+- name: Ensure PostgreSQL running
+  service:
+    name: postgresql
+    state: started
+    enabled: true
+  tags: [service, postgresql]

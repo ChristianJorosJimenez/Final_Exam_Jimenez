@@ -1,0 +1,30 @@
+---
+- name: Install Prometheus (Debian/Ubuntu)
+  apt:
+    name: prometheus
+    state: present
+  when: ansible_os_family == "Debian" and (monitoring.install_prometheus | default(true))
+  tags: [install, prometheus]
+
+- name: Install Prometheus (CentOS/RHEL)
+  yum:
+    name: prometheus
+    state: present
+  when: ansible_os_family == "RedHat" and (monitoring.install_prometheus | default(true))
+  tags: [install, prometheus]
+
+- name: Template prometheus.yml
+  template:
+    src: prometheus.yml.j2
+    dest: /etc/prometheus/prometheus.yml
+  notify: restart prometheus
+  when: monitoring.install_prometheus | default(true)
+  tags: [configure, prometheus]
+
+- name: Ensure Prometheus running
+  service:
+    name: prometheus
+    state: started
+    enabled: true
+  when: monitoring.install_prometheus | default(true)
+  tags: [service, prometheus]

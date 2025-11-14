@@ -1,0 +1,28 @@
+all:
+  children:
+    debian:
+      hosts:
+        ubuntu-manage:
+          ansible_host: 192.168.56.104
+          ansible_user: Jimenez
+        ubuntu-control:
+          ansible_host: 192.168.56.105
+          ansible_user: Jimenez
+    centos:
+      hosts:
+        centos-control:
+          ansible_host: 192.168.56.101
+          ansible_user: jimenez
+    monitoring:
+      children:
+        prometheus_server:
+          hosts:
+            ubuntu-control:
+        grafana_server:
+          hosts:
+            centos-control:
+    node_exporters:
+      hosts:
+        ubuntu-manage:
+        ubuntu-control:
+        centos-control:

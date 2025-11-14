@@ -1,0 +1,21 @@
+---
+- name: Install node exporter (Debian/Ubuntu)
+  apt:
+    name: prometheus-node-exporter
+    state: present
+  when: ansible_os_family == "Debian"
+  tags: [install, node_exporter]
+
+- name: Install node exporter (CentOS/RHEL)
+  yum:
+    name: node_exporter
+    state: present
+  when: ansible_os_family == "RedHat"
+  tags: [install, node_exporter]
+
+- name: Ensure node exporter running
+  service:
+    name: "{{ (ansible_os_family == 'Debian') | ternary('prometheus-node-exporter','node_exporter') }}"
+    state: started
+    enabled: true
+  tags: [service, node_exporter]

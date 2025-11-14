@@ -1,0 +1,18 @@
+postgresql:
+  version_debian: "14"
+  version_centos: "13"
+  port: 5432
+  data_dir_debian: "/var/lib/postgresql/14/main"
+  data_dir_centos: "/var/lib/pgsql/13/data"
+  listen_addresses: "0.0.0.0"
+
+monitoring:
+  install_prometheus: true
+  install_grafana: true
+  scrape_interval: "15s"
+  node_exporter_port: 9100
+  prometheus_port: 9090
+  grafana_port: 3000
+
+motd:
+  username: "Jimenez"
