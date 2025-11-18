@@ -1,17 +1,158 @@
 ---
-- hosts: debian,centos
-  roles:
-    - postgresql
+- name: Prepare OS prerequisites
+  hosts: all
+  tasks:
+    - name: Update apt cache (Debian/Ubuntu)
+      apt:
+        update_cache: true
+      when: ansible_os_family == "Debian"
 
-- hosts: node_exporters
-  roles:
-    - node_exporter
+    - name: Install EPEL (CentOS/RHEL)
+      yum:
+        name: epel-release
+        state: present
+      when: ansible_os_family == "RedHat"
 
-- hosts: prometheus_server
-  roles:
-    - prometheus
+# 3.1 PostgreSQL
+- name: Install and configure PostgreSQL
+  hosts: debian,centos
+  vars_files:
+    - config.yaml
+  tasks:
+    - name: Install PostgreSQL on Debian
+      apt:
+        name:
+          - "postgresql-{{ postgresql.version_debian }}"
+          - "postgresql-client-{{ postgresql.version_debian }}"
+        state: present
+      when: ansible_os_family == "Debian"
 
-- hosts: grafana_server
-  roles:
-    - grafana
+    - name: Install PostgreSQL on CentOS
+      yum:
+        name:
+          - "postgresql{{ postgresql.version_centos.replace('.', '') }}-server"
+          - "postgresql{{ postgresql.version_centos.replace('.', '') }}"
+        state: present
+      when: ansible_os_family == "RedHat"
 
+    - name: Initialize PostgreSQL (CentOS)
+      command: "postgresql-setup --initdb"
+      args:
+        creates: "{{ postgresql.data_dir_centos }}/PG_VERSION"
+      when: ansible_os_family == "RedHat"
+
+    - name: Configure listen_addresses
+      lineinfile:
+        path: "{{ (ansible_os_family == 'Debian') | ternary('/etc/postgresql/' ~ postgresql.version_debian ~ '/main/postgresql.conf', postgresql.data_dir_centos ~ '/postgresql.conf') }}"
+        regexp: '^#?listen_addresses\s*='
+        line: "listen_addresses = '{{ postgresql.listen_addresses }}'"
+      notify: restart postgresql
+
+    - name: Ensure PostgreSQL running
+      service:
+        name: postgresql
+        state: started
+        enabled: true
+
+  handlers:
+    - name: restart postgresql
+      service:
+        name: postgresql
+        state: restarted
+
+# 3.2 Node Exporter
+- name: Install Node Exporter
+  hosts: node_exporters
+  vars_files:
+    - config.yaml
+  tasks:
+    - name: Install node exporter (Debian)
+      apt:
+        name: prometheus-node-exporter
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Install node exporter (CentOS)
+      yum:
+        name: node_exporter
+        state: present
+      when: ansible_os_family == "RedHat"
+
+    - name: Ensure node exporter running
+      service:
+        name: "{{ (ansible_os_family == 'Debian') | ternary('prometheus-node-exporter','node_exporter') }}"
+        state: started
+        enabled: true
+
+# Prometheus
+- name: Install Prometheus
+  hosts: prometheus_server
+  vars_files:
+    - config.yaml
+  tasks:
+    - name: Install Prometheus (Debian)
+      apt:
+        name: prometheus
+        state: present
+      when: ansible_os_family == "Debian" and (monitoring.install_prometheus | default(true))
+
+    - name: Install Prometheus (CentOS)
+      yum:
+        name: prometheus
+        state: present
+      when: ansible_os_family == "RedHat" and (monitoring.install_prometheus | default(true))
+
+    - name: Template prometheus.yml
+      template:
+        src: templates/prometheus.yml.j2
+        dest: /etc/prometheus/prometheus.yml
+      notify: restart prometheus
+      when: monitoring.install_prometheus | default(true)
+
+    - name: Ensure Prometheus running
+      service:
+        name: prometheus
+        state: started
+        enabled: true
+      when: monitoring.install_prometheus | default(true)
+
+  handlers:
+    - name: restart prometheus
+      service:
+        name: prometheus
+        state: restarted
+
+# Grafana
+- name: Install Grafana
+  hosts: grafana_server
+  vars_files:
+    - config.yaml
+  tasks:
+    - name: Install Grafana (Debian)
+      apt:
+        name: grafana
+        state: present
+      when: ansible_os_family == "Debian" and (monitoring.install_grafana | default(true))
+
+    - name: Install Grafana (CentOS)
+      yum:
+        name: grafana
+        state: present
+      when: ansible_os_family == "RedHat" and (monitoring.install_grafana | default(true))
+
+    - name: Ensure Grafana running
+      service:
+        name: grafana-server
+        state: started
+        enabled: true
+      when: monitoring.install_grafana | default(true)
+
+# 4.4 MOTD
+- name: Set MOTD
+  hosts: all
+  vars_files:
+    - config.yaml
+  tasks:
+    - name: Update MOTD
+      copy:
+        dest: /etc/motd
