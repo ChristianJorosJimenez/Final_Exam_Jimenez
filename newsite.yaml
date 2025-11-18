@@ -1,0 +1,16 @@
+---
+- hosts: debian,centos
+  roles:
+    - postgresql
+
+- hosts: node_exporters
+  roles:
+    - node_exporter
+
+- hosts: prometheus_server
+  roles:
+    - prometheus
+
+- hosts: grafana_server
+  roles:
+    - grafana
